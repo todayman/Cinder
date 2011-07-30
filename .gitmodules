@@ -1,0 +1,3 @@
+[submodule "tools/TinderBox-Mac"]
+	path = tools/TinderBox-Mac
+	url = git@github.com:cinder/TinderBox-Mac.git
