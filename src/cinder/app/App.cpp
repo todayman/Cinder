@@ -309,6 +309,36 @@ fs::path App::getResourcePath()
 
 #endif
 
+#if defined( CINDER_MAC )
+static inline fs::path returnOnlyIfFile(NSURL * url) {
+	if( [url isFileURL] ) {
+		string result( [[url path] UTF8String] );
+		return result;
+	}
+	else {
+		return string();
+	}
+}
+	
+static inline fs::path firstFilename(NSOpenPanel * panel) {
+	NSURL * url = [[panel URLs] objectAtIndex:0];
+	return returnOnlyIfFile(url);
+}
+	
+	static inline int runModalForDirectory(NSSavePanel * cinderSave, NSString * directory) {
+		NSURL * directoryURL = [[NSURL alloc] initFileURLWithPath:directory];
+		[cinderSave setDirectoryURL:directoryURL];
+		[directoryURL release];
+		return [cinderSave runModal];
+	}
+
+	static inline int runModalForDirectory(NSOpenPanel * cinderOpen, NSString * directory, NSArray * typesArray) {
+		[cinderOpen setAllowedFileTypes:typesArray];
+		[cinderOpen setNameFieldStringValue:nil];
+		return runModalForDirectory(cinderOpen, directory);
+	}
+#endif
+
 fs::path App::getOpenFilePath( const fs::path &initialPath, vector<string> extensions )
 {
 #if defined( CINDER_MAC )
@@ -328,14 +358,13 @@ fs::path App::getOpenFilePath( const fs::path &initialPath, vector<string> exten
 	}
 
 	NSString *directory = initialPath.empty() ? nil : [[NSString stringWithUTF8String:initialPath.c_str()] stringByExpandingTildeInPath];
-	int resultCode = [cinderOpen runModalForDirectory:directory file:nil types:typesArray];	
+	int resultCode = runModalForDirectory(cinderOpen, directory, typesArray);
 
 	setFullScreen( wasFullScreen );
 	restoreWindowContext();
 
 	if( resultCode == NSOKButton ) {
-		NSString *result = [[cinderOpen filenames] objectAtIndex:0];
-		return string( [result UTF8String] );
+		return firstFilename(cinderOpen);
 	}
 	else
 		return string();
@@ -358,14 +387,13 @@ fs::path App::getFolderPath( const fs::path &initialPath )
 	[cinderOpen setAllowsMultipleSelection:NO];
 	
 	NSString *directory = initialPath.empty() ? nil : [[NSString stringWithUTF8String:initialPath.c_str()] stringByExpandingTildeInPath];
-	int resultCode = [cinderOpen runModalForDirectory:directory file:nil types:nil];	
+	int resultCode = runModalForDirectory(cinderOpen, directory, nil);
 	
 	setFullScreen(wasFullScreen);
 	restoreWindowContext();
 	
 	if(resultCode == NSOKButton) {
-		NSString *result = [[cinderOpen filenames] objectAtIndex:0];
-		return string([result UTF8String]);
+		return firstFilename(cinderOpen);
 	}
 	else
 		return string();
@@ -407,14 +435,14 @@ fs::path App::getSaveFilePath( const fs::path &initialPath, vector<string> exten
 			directory = [directory stringByDeletingLastPathComponent];			
 		}
 	}
-	int resultCode = [cinderSave runModalForDirectory:directory file:file];
+	[cinderSave setNameFieldStringValue:file];
+	int resultCode = runModalForDirectory(cinderSave, directory);
 
 	setFullScreen( wasFullScreen );
 	restoreWindowContext();
 
 	if( resultCode == NSOKButton ) {
-		string result( [[cinderSave filename] UTF8String] );
-		return result;
+		return returnOnlyIfFile([cinderSave URL]);
 	}
 	else
 		return string();
